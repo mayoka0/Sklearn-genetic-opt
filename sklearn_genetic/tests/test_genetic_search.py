@@ -179,6 +179,29 @@ def test_gasearch_accepts_valid_error_score(error_score):
         assert estimator.error_score == error_score
 
 
+def test_fit_param_check_skips_uninspectable_fit():
+    class UninspectableEstimator:
+        fit = object()
+
+    # Some third-party/C-extension estimators do not expose an inspectable fit
+    # signature; their own fit implementation should validate the parameters.
+    genetic_search._check_fit_params_supported(
+        UninspectableEstimator(), {"sample_weight": np.ones(3)}
+    )
+
+
+def test_fit_param_check_skips_estimators_accepting_kwargs():
+    class KwargsEstimator:
+        def fit(self, X, y, **kwargs):
+            return self
+
+    # **kwargs may contain metadata routed by a meta-estimator, so static
+    # validation must leave those keys for the estimator to handle.
+    genetic_search._check_fit_params_supported(
+        KwargsEstimator(), {"not_a_real_fit_param": np.ones(3)}
+    )
+
+
 def test_wrong_population_initializer():
     with pytest.raises(ValueError) as excinfo:
         GASearchCV(
